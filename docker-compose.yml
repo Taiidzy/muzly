@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: muzly-postgres
+    env_file:
+      - ./.env
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./backend/postgres_data:/var/lib/postgresql/data
+    networks:
+      - muzly-network
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  redis:
+    image: redis:7-alpine
+    container_name: muzly-redis
+    ports:
+      - "6380:6379"
+    networks:
+      - muzly-network
+    restart: unless-stopped
+    profiles:
+      - celery
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: muzly-backend
+    env_file:
+      - ./.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_started
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/uploads:/app/uploads
+      - ./backend/public:/app/public
+      - ./backend/import_drop:/app/import_drop
+      - ./backend/covers:/app/covers
+      - ./backend/data:/data
+    networks:
+      - muzly-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:stable
+    container_name: muzly-nginx
+    env_file:
+      - ./.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./backend/media:/app/media:ro
+      - ./backend/covers:/app/covers:ro
+    depends_on:
+      - backend
+    networks:
+      - muzly-network
+    restart: unless-stopped
+    profiles:
+      - nginx
+
+  certbot:
+    image: certbot/certbot
+    container_name: muzly-certbot
+    volumes:
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/certbot/conf:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew;
+        sleep 12h & wait $${!};
+      done"
+    restart: unless-stopped
+    profiles:
+      - nginx
+
+networks:
+  muzly-network:
+    driver: bridge

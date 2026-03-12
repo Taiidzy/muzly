@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: muzly_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/muzly_test
+        JWT_SECRET: test-secret-key-for-ci
+      run: |
+        pytest --cov=app --cov-report=xml --cov-report=term-missing
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black mypy
+    
+    - name: Run flake8
+      working-directory: ./backend
+      run: |
+        flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Run black (check only)
+      working-directory: ./backend
+      run: |
+        black --check app tests
+    
+    - name: Run mypy
+      working-directory: ./backend
+      run: |
+        mypy app --ignore-missing-imports --no-strict-optional
+
+  docker-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      working-directory: ./backend
+      run: |
+        docker build -t muzly-backend:test .

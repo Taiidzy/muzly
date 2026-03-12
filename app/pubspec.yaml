@@ -1,0 +1,63 @@
+name: muzly
+description: "Muzly - Minimalist Music Player"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.1
+  
+  # Audio Playback
+  just_audio: ^0.9.36
+  audio_service: ^0.18.12
+  just_audio_background: ^0.0.1-beta.11
+  
+  # Network
+  http: ^1.1.0
+  dio: ^5.4.0
+  
+  # Caching
+  cached_network_image: ^3.3.1
+  flutter_cache_manager: ^3.3.1
+  
+  # Storage
+  shared_preferences: ^2.5.4
+  
+  # UI
+  shimmer: ^3.0.0
+  
+  # Icons
+  cupertino_icons: ^1.0.8
+  
+  # Utilities
+  rxdart: ^0.27.7
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Inconsolata
+      fonts:
+        - asset: assets/fonts/Inconsolata-Regular.ttf
+    - family: Noto Serif JP
+      fonts:
+        - asset: assets/fonts/NotoSerifJP-Variable.ttf
+    - family: IM Fell English
+      fonts:
+        - asset: assets/fonts/IMFellEnglish-Regular.ttf

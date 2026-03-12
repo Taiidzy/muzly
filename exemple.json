@@ -1,0 +1,274 @@
+{
+    "invocationInfo": {
+        "req-id": "1773236539417894-5270643381604573345",
+        "hostname": "music-web-default-production-music-79.klg.yp-c.yandex.net",
+        "exec-duration-millis": 416
+    },
+    "result": {
+        "summary": {
+            "count": 975
+        },
+        "tracks": [
+            {
+                "id": "30210524",
+                "realId": "30210524",
+                "title": "Перемены к лучшему",
+                "major": {
+                    "id": 0,
+                    "name": "-"
+                },
+                "available": true,
+                "availableForPremiumUsers": true,
+                "availableFullWithoutPermission": false,
+                "availableForOptions": [
+                    "bookmate"
+                ],
+                "disclaimers": [],
+                "storageDir": "",
+                "durationMs": 207000,
+                "fileSize": 0,
+                "r128": {
+                    "i": -6.94,
+                    "tp": 0.9
+                },
+                "fade": {
+                    "inStart": 0.7,
+                    "inStop": 5.7,
+                    "outStart": 202.9,
+                    "outStop": 205.6
+                },
+                "previewDurationMs": 30000,
+                "artists": [
+                    {
+                        "id": 4525014,
+                        "name": "Вдруг",
+                        "various": false,
+                        "composer": false,
+                        "available": true,
+                        "cover": {
+                            "type": "from-artist-photos",
+                            "uri": "avatars.yandex.net/get-music-content/1880735/6d4e72cd.p.4525014/%%",
+                            "prefix": "6d4e72cd.p.4525014/"
+                        },
+                        "genres": [],
+                        "disclaimers": []
+                    }
+                ],
+                "albums": [
+                    {
+                        "id": 3655144,
+                        "title": "Удачи",
+                        "metaType": "music",
+                        "year": 2016,
+                        "releaseDate": "2016-07-29T00:00:00+03:00",
+                        "coverUri": "avatars.yandex.net/get-music-content/63210/bb8195a4.a.3655144-1/%%",
+                        "ogImage": "avatars.yandex.net/get-music-content/63210/bb8195a4.a.3655144-1/%%",
+                        "genre": "rusrock",
+                        "trackCount": 10,
+                        "likesCount": 708,
+                        "recent": false,
+                        "veryImportant": false,
+                        "artists": [
+                            {
+                                "id": 4525014,
+                                "name": "Вдруг",
+                                "various": false,
+                                "composer": false,
+                                "available": true,
+                                "cover": {
+                                    "type": "from-artist-photos",
+                                    "uri": "avatars.yandex.net/get-music-content/1880735/6d4e72cd.p.4525014/%%",
+                                    "prefix": "6d4e72cd.p.4525014/"
+                                },
+                                "genres": [],
+                                "disclaimers": []
+                            }
+                        ],
+                        "labels": [
+                            {
+                                "id": 29137,
+                                "name": "Big"
+                            }
+                        ],
+                        "available": true,
+                        "availableForPremiumUsers": true,
+                        "availableForOptions": [
+                            "bookmate"
+                        ],
+                        "availableForMobile": true,
+                        "availablePartially": false,
+                        "bests": [
+                            30210524,
+                            30210519
+                        ],
+                        "disclaimers": [],
+                        "listeningFinished": false,
+                        "trackPosition": {
+                            "volume": 1,
+                            "index": 6
+                        }
+                    }
+                ],
+                "coverUri": "avatars.yandex.net/get-music-content/63210/bb8195a4.a.3655144-1/%%",
+                "derivedColors": {
+                    "average": "#a36a28",
+                    "waveText": "#ffe2c1",
+                    "miniPlayer": "#f6bc79",
+                    "accent": "#f29f3f"
+                },
+                "ogImage": "avatars.yandex.net/get-music-content/63210/bb8195a4.a.3655144-1/%%",
+                "lyricsAvailable": false,
+                "type": "music",
+                "rememberPosition": false,
+                "trackSharingFlag": "COVER_ONLY",
+                "lyricsInfo": {
+                    "hasAvailableSyncLyrics": true,
+                    "hasAvailableTextLyrics": true
+                },
+                "trackSource": "OWN",
+                "specialAudioResources": [
+                    "smart_preview"
+                ]
+            },
+            {
+                "id": "67964899",
+                "realId": "67964899",
+                "title": "Финский залив",
+                "contentWarning": "explicit",
+                "major": {
+                    "id": 0,
+                    "name": "-"
+                },
+                "available": true,
+                "availableForPremiumUsers": true,
+                "availableFullWithoutPermission": false,
+                "availableForOptions": [
+                    "bookmate"
+                ],
+                "disclaimers": [
+                    "exclamationIcon:671a23afcec5646906723a52",
+                    "explicit",
+                    "descriptionText:67370c8e13b92b0a60256675"
+                ],
+                "storageDir": "",
+                "durationMs": 168000,
+                "fileSize": 0,
+                "r128": {
+                    "i": -7.76,
+                    "tp": 0.52
+                },
+                "fade": {
+                    "inStart": 0.3,
+                    "inStop": 1.5,
+                    "outStart": 164.5,
+                    "outStop": 168.0
+                },
+                "previewDurationMs": 30000,
+                "artists": [
+                    {
+                        "id": 7692754,
+                        "name": "Ночная Лента",
+                        "various": false,
+                        "composer": false,
+                        "available": true,
+                        "cover": {
+                            "type": "from-album-cover",
+                            "uri": "avatars.yandex.net/get-music-content/6255016/417f8ed9.a.23145105-1/%%",
+                            "prefix": "417f8ed9.a.23145105-1"
+                        },
+                        "genres": [],
+                        "disclaimers": []
+                    }
+                ],
+                "albums": [
+                    {
+                        "id": 11215155,
+                        "title": "Пропаганда исповеди",
+                        "metaType": "music",
+                        "contentWarning": "explicit",
+                        "year": 2020,
+                        "releaseDate": "2020-07-01T00:00:00+03:00",
+                        "coverUri": "avatars.yandex.net/get-music-content/2441215/522b594b.a.11215155-1/%%",
+                        "ogImage": "avatars.yandex.net/get-music-content/2441215/522b594b.a.11215155-1/%%",
+                        "genre": "alternative",
+                        "trackCount": 4,
+                        "likesCount": 380,
+                        "recent": false,
+                        "veryImportant": false,
+                        "artists": [
+                            {
+                                "id": 7692754,
+                                "name": "Ночная Лента",
+                                "various": false,
+                                "composer": false,
+                                "available": true,
+                                "cover": {
+                                    "type": "from-album-cover",
+                                    "uri": "avatars.yandex.net/get-music-content/6255016/417f8ed9.a.23145105-1/%%",
+                                    "prefix": "417f8ed9.a.23145105-1"
+                                },
+                                "genres": [],
+                                "disclaimers": []
+                            }
+                        ],
+                        "labels": [
+                            {
+                                "id": 2130899,
+                                "name": "underpunk"
+                            }
+                        ],
+                        "available": true,
+                        "availableForPremiumUsers": true,
+                        "availableForOptions": [
+                            "bookmate"
+                        ],
+                        "availableForMobile": true,
+                        "availablePartially": false,
+                        "bests": [
+                            67964899
+                        ],
+                        "disclaimers": [
+                            "exclamationIcon:671a23afcec5646906723a52",
+                            "explicit",
+                            "descriptionText:67370c8e13b92b0a60256675"
+                        ],
+                        "listeningFinished": false,
+                        "trackPosition": {
+                            "volume": 1,
+                            "index": 2
+                        }
+                    }
+                ],
+                "coverUri": "avatars.yandex.net/get-music-content/2441215/522b594b.a.11215155-1/%%",
+                "derivedColors": {
+                    "average": "#8383ae",
+                    "waveText": "#c1c1ff",
+                    "miniPlayer": "#a8a8c6",
+                    "accent": "#8383ae"
+                },
+                "ogImage": "avatars.yandex.net/get-music-content/2441215/522b594b.a.11215155-1/%%",
+                "lyricsAvailable": false,
+                "type": "music",
+                "rememberPosition": false,
+                "trackSharingFlag": "COVER_ONLY",
+                "lyricsInfo": {
+                    "hasAvailableSyncLyrics": false,
+                    "hasAvailableTextLyrics": false
+                },
+                "trackSource": "OWN",
+                "specialAudioResources": [
+                    "smart_preview"
+                ]
+            }
+        ],
+        "playlist": {
+            "uid": 2009146459,
+            "playlistUuid": "lk.b5327f20-730f-4d1a-a80e-b45163a622e0",
+            "kind": 3,
+            "title": "Мне нравится",
+            "cover": {
+                "uri": "avatars.yandex.net/get-music-user-playlist/30088/playlist-favorite-default/%%"
+            }
+        }
+    }
+}
