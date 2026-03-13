@@ -11,8 +11,6 @@ services:
     networks:
       - muzly-network
     restart: unless-stopped
-    profiles:
-      - postgres
 
   redis:
     image: redis:7-alpine
@@ -67,8 +65,6 @@ services:
     networks:
       - muzly-network
     restart: unless-stopped
-    profiles:
-      - nginx
 
   certbot:
     image: certbot/certbot
@@ -83,8 +79,6 @@ services:
         sleep 12h & wait $${!};
       done"
     restart: unless-stopped
-    profiles:
-      - nginx
 
 networks:
   muzly-network:
