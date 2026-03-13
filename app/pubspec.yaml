@@ -1,7 +1,7 @@
 name: muzly
 description: "Muzly - Minimalist Music Player"
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: ^3.11.0
@@ -41,6 +41,7 @@ dependencies:
   permission_handler: ^11.3.0
 
 dev_dependencies:
+  flutter_launcher_icons: "^0.14.4"
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
@@ -61,3 +62,22 @@ flutter:
     - family: IM Fell English
       fonts:
         - asset: assets/fonts/IMFellEnglish-Regular.ttf
+
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/images/icon.png"
+    background_color: "#391837"
+    theme_color: "#56374F"
+  windows:
+    generate: true
+    image_path: "assets/images/icon.png"
+    icon_size: 256 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/images/icon.png"

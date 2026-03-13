@@ -108,6 +108,12 @@ if ADMIN_DIR.exists():
     app.mount("/admin/static", StaticFiles(directory=ADMIN_DIR), name="admin-static")
 
 
+# Media files (covers, etc.)
+from app.config import MEDIA_ROOT
+if MEDIA_ROOT.exists():
+    app.mount("/media", StaticFiles(directory=str(MEDIA_ROOT)), name="media")
+
+
 @app.get("/admin", tags=["Admin UI"])
 @app.get("/admin/", tags=["Admin UI"])
 async def admin_ui():

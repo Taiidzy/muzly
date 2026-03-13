@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/services.dart';
 import 'providers/providers.dart';
@@ -18,12 +19,20 @@ void main() async {
   // Initialize services
   Logger.d('Initializing services...', tag: 'App');
   await ApiConfig.load();
+  final prefsFuture = SharedPreferences.getInstance();
   final apiService = ApiService();
   final audioPlayerService = AudioPlayerService(apiService: apiService);
+  final persistenceService = PlaybackPersistenceService(prefsFuture);
+  final historyService = ListeningHistoryService(prefsFuture);
   Logger.d('Services initialized', tag: 'App');
 
   runApp(
-    MuzlyApp(apiService: apiService, audioPlayerService: audioPlayerService),
+    MuzlyApp(
+      apiService: apiService,
+      audioPlayerService: audioPlayerService,
+      persistenceService: persistenceService,
+      historyService: historyService,
+    ),
   );
 }
 
@@ -31,11 +40,15 @@ void main() async {
 class MuzlyApp extends StatelessWidget {
   final ApiService apiService;
   final AudioPlayerService audioPlayerService;
+  final PlaybackPersistenceService persistenceService;
+  final ListeningHistoryService historyService;
 
   const MuzlyApp({
     super.key,
     required this.apiService,
     required this.audioPlayerService,
+    required this.persistenceService,
+    required this.historyService,
   });
 
   @override

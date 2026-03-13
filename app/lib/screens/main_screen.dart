@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
+import '../utils/platform_helper.dart';
 import 'screens.dart';
 
 /// Main Screen with Bottom Navigation
-/// 
+///
 /// Provides navigation between Home, Search, and Library tabs
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,7 +15,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _screens = const [
     HomeScreen(),
     SearchScreen(),
@@ -23,8 +24,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 1024;
+    // Use platform-based detection instead of window size
+    final isDesktop = PlatformHelper.isDesktop;
 
     if (!isDesktop) {
       return Scaffold(

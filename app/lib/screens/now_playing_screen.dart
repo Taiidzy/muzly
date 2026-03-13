@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:math' as math;
 import '../../providers/player_provider.dart';
 import '../../utils/app_theme.dart';
+import 'queue_screen.dart';
 
 /// Now Playing Screen
 ///
@@ -452,8 +454,19 @@ class _BodySection extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Bottom row
-          _BottomRow(isLiked: isLiked, onToggleLike: () => player.toggleLike()),
+          // Bottom row with like and queue buttons
+          _BottomRow(
+            isLiked: isLiked,
+            onToggleLike: () => player.toggleLike(),
+            onOpenQueue: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QueueScreen(),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -466,7 +479,7 @@ class _BodySection extends StatelessWidget {
   }
 }
 
-/// Waveform visualization
+/// Waveform visualization with music-reactive animation
 class _Waveform extends StatefulWidget {
   final bool isPlaying;
   final double progress;
@@ -480,24 +493,42 @@ class _Waveform extends StatefulWidget {
 class _WaveformState extends State<_Waveform>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late List<double> _heights;
+  late List<double> _baseHeights;
+  late List<double> _currentHeights;
+  
+  // Simulated frequency bands (bass, mid, treble)
+  late List<double> _frequencyBands;
+  final math.Random _random = math.Random();
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 150),
       vsync: this,
     );
 
-    // Generate random heights for waveform bars
-    _heights = List.generate(40, (index) {
-      return 12 + (index % 7) * 10 + (index % 13) * 5;
+    // Generate base heights for waveform bars (simulating a waveform pattern)
+    _baseHeights = List.generate(40, (index) {
+      // Create a more natural waveform pattern
+      final normalizedIndex = index / 39.0;
+      final baseHeight = 8 + (normalizedIndex * 12);
+      final variation = (index % 5) * 3;
+      return baseHeight + variation;
     });
 
+    _currentHeights = List.from(_baseHeights);
+    
+    // Initialize frequency bands
+    _frequencyBands = List.filled(4, 1.0);
+
     if (widget.isPlaying) {
-      _controller.repeat(reverse: true);
+      _startAnimation();
     }
+  }
+
+  void _startAnimation() {
+    _controller.repeat(reverse: true);
   }
 
   @override
@@ -505,9 +536,13 @@ class _WaveformState extends State<_Waveform>
     super.didUpdateWidget(oldWidget);
     if (widget.isPlaying != oldWidget.isPlaying) {
       if (widget.isPlaying) {
-        _controller.repeat(reverse: true);
+        _startAnimation();
       } else {
         _controller.stop();
+        // Reset heights when paused
+        setState(() {
+          _currentHeights = List.from(_baseHeights);
+        });
       }
     }
   }
@@ -518,28 +553,35 @@ class _WaveformState extends State<_Waveform>
     super.dispose();
   }
 
+  void _updateHeights() {
+    // Update frequency bands with some randomness to simulate music reaction
+    for (int i = 0; i < _frequencyBands.length; i++) {
+      final target = 0.8 + (_random.nextDouble() * 0.4);
+      _frequencyBands[i] = math.max(_frequencyBands[i], target) * 0.2 + _frequencyBands[i] * 0.8;
+    }
+    
+    // Update bar heights based on frequency bands
+    for (int i = 0; i < 40; i++) {
+      final bandIndex = (i / 40.0 * _frequencyBands.length).floor();
+      final bandMultiplier = _frequencyBands[bandIndex.clamp(0, 3)];
+      final noise = (i % 3) * 2 * _controller.value;
+      _currentHeights[i] = _baseHeights[i] * bandMultiplier + noise;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
+        _updateHeights();
+        
         return SizedBox(
           height: 22,
           child: Row(
             children: List.generate(40, (index) {
               final normalizedIndex = index / 40;
               final isPast = normalizedIndex <= widget.progress;
-
-              // Animate height when playing
-              double heightPercent;
-              if (widget.isPlaying && !isPast) {
-                final animValue = _controller.value;
-                final baseHeight = _heights[index];
-                final variation = (index % 5 + 1) * 8;
-                heightPercent = baseHeight + variation * animValue;
-              } else {
-                heightPercent = _heights[index];
-              }
 
               return Expanded(
                 child: Container(
@@ -548,7 +590,7 @@ class _WaveformState extends State<_Waveform>
                     color: isPast ? AppTheme.textMuted : AppTheme.accent,
                     borderRadius: BorderRadius.circular(1),
                   ),
-                  height: (heightPercent / 100 * 22).clamp(8, 22),
+                  height: _currentHeights[index].clamp(6, 22),
                 ),
               );
             }),
@@ -618,18 +660,21 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = AppTheme.textDim;
+    final activeColor = AppTheme.accent;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Shuffle button
         _ControlButton(
-          icon: _shuffleIcon,
+          icon: _shuffleIcon(isShuffle ? activeColor : iconColor),
           isActive: isShuffle,
           onTap: onToggleShuffle,
         ),
 
         // Previous button
-        _ControlButton(icon: _previousIcon, onTap: onPrevious),
+        _ControlButton(icon: _previousIcon(iconColor), onTap: onPrevious),
 
         // Play/Pause button
         _PlayButton(
@@ -639,11 +684,11 @@ class _Controls extends StatelessWidget {
         ),
 
         // Next button
-        _ControlButton(icon: _nextIcon, onTap: onNext),
+        _ControlButton(icon: _nextIcon(iconColor), onTap: onNext),
 
         // Loop button
         _ControlButton(
-          icon: _loopIcon,
+          icon: _loopIcon(loopMode.toString() != 'LoopMode.off' ? activeColor : iconColor),
           isActive: loopMode.toString() != 'LoopMode.off',
           onTap: onCycleLoop,
         ),
@@ -652,45 +697,51 @@ class _Controls extends StatelessWidget {
   }
 
   // SVG-like icons
-  Widget get _shuffleIcon =>
-      _SvgPath('M16 3l5 5-5 5M4 20l21-17M21 16l-5 5-5-5M3 4l17 17');
+  Widget _shuffleIcon(Color color) =>
+      _SvgPath('M16 3l5 5-5 5M4 20l21-17M21 16l-5 5-5-5M3 4l17 17', color: color);
 
-  Widget get _previousIcon => _SvgPath('M19 20L9 12l10-8v16zM5 19V5');
+  Widget _previousIcon(Color color) => _SvgPath('M19 20L9 12l10-8v16zM5 19V5', color: color);
 
-  Widget get _nextIcon => _SvgPath('M5 4l10 8-10 8V4zM19 5v14');
+  Widget _nextIcon(Color color) => _SvgPath('M5 4l10 8-10 8V4zM19 5v14', color: color);
 
-  Widget get _loopIcon => _SvgPath(
+  Widget _loopIcon(Color color) => _SvgPath(
     'M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3',
+    color: color,
   );
 }
 
 /// Simple SVG path renderer
 class _SvgPath extends StatelessWidget {
   final String pathData;
+  final Color? color;
+  final double size;
 
-  const _SvgPath(this.pathData);
+  const _SvgPath(this.pathData, {this.color, this.size = 20});
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(15, 15),
-      painter: _PathPainter(pathData),
+      size: Size(size, size),
+      painter: _PathPainter(pathData, color: color, strokeWidth: 2),
     );
   }
 }
 
 class _PathPainter extends CustomPainter {
   final String pathData;
+  final Color? color;
+  final double strokeWidth;
 
-  _PathPainter(this.pathData);
+  _PathPainter(this.pathData, {this.color, this.strokeWidth = 2});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.textDim
+      ..color = color ?? AppTheme.textDim
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final path = _parsePath(pathData, size);
     canvas.drawPath(path, paint);
@@ -868,13 +919,7 @@ class _ControlButton extends StatelessWidget {
         height: 32,
         decoration: BoxDecoration(shape: BoxShape.circle),
         child: Center(
-          child: IconTheme(
-            data: IconThemeData(
-              color: isActive ? AppTheme.accent : AppTheme.textDim,
-              size: 15,
-            ),
-            child: icon,
-          ),
+          child: icon,
         ),
       ),
     );
@@ -885,8 +930,13 @@ class _ControlButton extends StatelessWidget {
 class _BottomRow extends StatelessWidget {
   final bool isLiked;
   final VoidCallback onToggleLike;
+  final VoidCallback onOpenQueue;
 
-  const _BottomRow({required this.isLiked, required this.onToggleLike});
+  const _BottomRow({
+    required this.isLiked,
+    required this.onToggleLike,
+    required this.onOpenQueue,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -908,9 +958,7 @@ class _BottomRow extends StatelessWidget {
         _BottomButton(
           icon: _queueIcon,
           label: 'QUEUE',
-          onTap: () {
-            // TODO: Open queue screen
-          },
+          onTap: onOpenQueue,
         ),
 
         // Divider

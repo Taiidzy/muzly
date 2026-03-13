@@ -117,6 +117,66 @@ class TrackListTile extends StatelessWidget {
               ),
             ),
 
+            // Options menu
+            PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.more_vert,
+                color: AppTheme.textDim,
+                size: 20,
+              ),
+              color: AppTheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: const BorderSide(color: AppTheme.border),
+              ),
+              onSelected: (value) {
+                if (value == 'play_next') {
+                  player.playNext(track);
+                } else if (value == 'add_to_queue') {
+                  player.addToQueue(track);
+                } else if (value == 'like') {
+                  player.toggleLike();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'play_next',
+                  child: Text(
+                    'Play Next',
+                    style: TextStyle(
+                      fontFamily: 'Inconsolata',
+                      fontSize: 10,
+                      color: AppTheme.text,
+                    ),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_queue',
+                  child: Text(
+                    'Add to Queue',
+                    style: TextStyle(
+                      fontFamily: 'Inconsolata',
+                      fontSize: 10,
+                      color: AppTheme.text,
+                    ),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'like',
+                  child: Text(
+                    'Add to Favorites',
+                    style: TextStyle(
+                      fontFamily: 'Inconsolata',
+                      fontSize: 10,
+                      color: AppTheme.accent,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(width: 8),
+
             // Duration
             Text(
               track.formattedDuration,

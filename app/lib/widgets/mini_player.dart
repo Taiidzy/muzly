@@ -3,26 +3,26 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/player_provider.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/platform_helper.dart';
 import '../screens/now_playing_screen.dart';
+import '../screens/queue_screen.dart';
 
 /// Mini Player Widget
 ///
 /// Displays at the bottom of screens when a track is playing
 /// Tapping opens the full Now Playing screen
+/// Only shown on mobile platforms
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
-
-  static const _desktopBreakpoint = 1024.0;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (context, player, child) {
-        final width = MediaQuery.sizeOf(context).width;
-        final isDesktop = width >= _desktopBreakpoint;
         final track = player.currentTrack;
 
-        if (track == null || isDesktop) {
+        // Only show on mobile platforms
+        if (track == null || PlatformHelper.isDesktop) {
           return const SizedBox.shrink();
         }
 
@@ -109,6 +109,28 @@ class MiniPlayer extends StatelessWidget {
                         ],
                       ),
                     ),
+
+                    // Queue button
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const QueueScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(
+                          Icons.queue_music,
+                          color: AppTheme.textDim,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 4),
 
                     // Play/Pause button
                     GestureDetector(

@@ -254,7 +254,45 @@ class ApiService {
   }
 
   /// Get user's favorites playlist
-  /// Backend: playlist with is_favorites=true
+  /// Backend: GET /api/me/favorites/playlist
+  Future<Playlist> getFavoritesPlaylist() async {
+    try {
+      final response = await _dio.get('/api/me/favorites/playlist');
+      if (response.statusCode == 200) {
+        final data = _mapPlaylistJson(response.data as Map<String, dynamic>);
+        return Playlist.fromJson(data);
+      }
+      // If endpoint fails, fall back to old method
+      final tracks = await getFavorites();
+      return Playlist(
+        id: 'favorites',
+        title: 'Избранное',
+        description: 'Liked tracks',
+        coverUrl: null,
+        trackCount: tracks.length,
+        tracks: tracks,
+        creatorName: '',
+        isPublic: false,
+      );
+    } on DioException catch (e) {
+      Logger.w('Failed to fetch favorites playlist: ${e.message}', tag: 'API');
+      // Fall back to old method
+      final tracks = await getFavorites();
+      return Playlist(
+        id: 'favorites',
+        title: 'Избранное',
+        description: 'Liked tracks',
+        coverUrl: null,
+        trackCount: tracks.length,
+        tracks: tracks,
+        creatorName: '',
+        isPublic: false,
+      );
+    }
+  }
+
+  /// Get user's favorites (old method, kept for compatibility)
+  /// Backend: GET /api/me/favorites
   Future<List<Track>> getFavorites() async {
     try {
       final response = await _dio.get('/api/me/favorites');
@@ -262,7 +300,8 @@ class ApiService {
         final data = response.data as Map<String, dynamic>;
         final items = (data['items'] as List?) ?? [];
         return items
-            .map((item) => item['track'] as Map<String, dynamic>)
+            .map((item) => item['track'] as Map<String, dynamic>?)
+            .whereType<Map<String, dynamic>>()
             .map((track) => _mapTrackJson(track))
             .map((track) => Track.fromJson(track))
             .toList();
@@ -275,17 +314,19 @@ class ApiService {
   }
 
   /// Toggle track in favorites
-  /// Backend: add/remove track from favorites playlist
+  /// Backend: POST /api/me/favorites/{track_id} (add), DELETE /api/me/favorites/{track_id} (remove)
   Future<bool> toggleFavorite(String trackId) async {
     final parsedId = int.tryParse(trackId);
     if (parsedId == null) {
       throw ApiException('Invalid track id: $trackId');
     }
     try {
+      // Try to add first
       await _dio.post('/api/me/favorites/$parsedId');
       return true;
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
+        // Already in favorites, so remove it
         await _dio.delete('/api/me/favorites/$parsedId');
         return false;
       }
@@ -451,12 +492,26 @@ Map<String, dynamic> _mapTrackJson(Map<String, dynamic> json) {
       json['track_cover_path'] ??
       json['album_cover_path'] ??
       json['artist_avatar_path'];
-  final coverUrl = coverPath != null ? '/media/$coverPath' : null;
+  
+  // Build cover URL from cover_path
+  String? cover200Url;
+  String? cover800Url;
+  if (coverPath != null && coverPath.isNotEmpty) {
+    // cover_path is already a relative path like "covers/xxx.jpg"
+    if (coverPath.startsWith('/')) {
+      cover200Url = '${ApiConfig.baseUrl}$coverPath';
+      cover800Url = '${ApiConfig.baseUrl}$coverPath';
+    } else {
+      cover200Url = '${ApiConfig.baseUrl}/media/$coverPath';
+      cover800Url = '${ApiConfig.baseUrl}/media/$coverPath';
+    }
+  }
+  
   return {
     ...json,
     'streamUrl': json['streamUrl'] ?? '/api/tracks/$id/stream',
-    'cover200Url': json['cover200Url'] ?? coverUrl,
-    'cover800Url': json['cover800Url'] ?? coverUrl,
+    'cover200Url': json['cover200Url'] ?? cover200Url,
+    'cover800Url': json['cover800Url'] ?? cover800Url,
   };
 }
 
