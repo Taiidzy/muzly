@@ -5,9 +5,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Media directories
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", BASE_DIR / "media")
-COVERS_ROOT = os.getenv("COVERS_ROOT", BASE_DIR / "covers")
-IMPORT_DROP = os.getenv("IMPORT_DROP", BASE_DIR / "import_drop")
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
+COVERS_ROOT = Path(os.getenv("COVERS_ROOT", str(BASE_DIR / "covers")))
+IMPORT_DROP = Path(os.getenv("IMPORT_DROP", str(BASE_DIR / "import_drop")))
 
 # Create directories
 for dir_path in [MEDIA_ROOT, COVERS_ROOT, IMPORT_DROP]:
