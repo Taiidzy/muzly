@@ -90,7 +90,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
-from app.routers import auth, tracks, playlists, favorites, import as import_router, admin
+from app.routers import auth, tracks, playlists, favorites, importer as import_router, admin
 
 app.include_router(auth.router)
 app.include_router(tracks.router)
