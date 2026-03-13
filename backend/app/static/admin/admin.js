@@ -34,6 +34,9 @@ const els = {
   refreshBtn: document.getElementById('refresh-btn'),
   playlistRefresh: document.getElementById('playlist-refresh'),
   logoutBtn: document.getElementById('logout-btn'),
+  reuploadModal: document.getElementById('reupload-modal'),
+  reuploadForm: document.getElementById('reupload-form'),
+  reuploadCancel: document.getElementById('reupload-cancel'),
 };
 
 function showToast(message, tone = 'info') {
@@ -168,6 +171,7 @@ function renderTracks(tracks) {
     .map((track) => {
       const status = track.status || 'ready';
       const isEditing = state.editingTrackId === String(track.id);
+      const isFailed = status === 'failed';
       return `
         <div class="table-row ${isEditing ? 'editing' : ''}">
           <div>
@@ -201,6 +205,7 @@ function renderTracks(tracks) {
                 : `<button class="ghost" data-action="edit" data-id="${track.id}">Edit</button>`
             }
             <button class="ghost" data-action="play" data-id="${track.id}">Play</button>
+            ${isFailed ? `<button class="ghost" data-action="reupload" data-id="${track.id}">Re-upload</button>` : ''}
             <button class="ghost" data-action="delete" data-id="${track.id}">Delete</button>
           </div>
         </div>`;
@@ -404,6 +409,16 @@ async function uploadTrack(formData) {
   await loadStats();
 }
 
+async function reuploadTrack(trackId, formData) {
+  await apiFetch(`/tracks/${trackId}/reupload`, {
+    method: 'POST',
+    body: formData,
+  });
+  showToast('Track re-uploaded', 'success');
+  await loadTracks();
+  await loadStats();
+}
+
 async function importJson(formData) {
   const response = await apiFetch('/import/json', {
     method: 'POST',
@@ -527,6 +542,24 @@ function bindEvents() {
     }
   });
 
+  els.reuploadForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(els.reuploadForm);
+    const trackId = formData.get('track_id');
+    try {
+      await reuploadTrack(trackId, formData);
+      els.reuploadForm.reset();
+      els.reuploadModal.style.display = 'none';
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  els.reuploadCancel.addEventListener('click', () => {
+    els.reuploadModal.style.display = 'none';
+    els.reuploadForm.reset();
+  });
+
   els.importForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(els.importForm);
@@ -579,6 +612,10 @@ function bindEvents() {
           showToast(err.message, 'error');
         }
       }
+    }
+    if (action === 'reupload') {
+      document.getElementById('reupload-track-id').value = trackId;
+      els.reuploadModal.style.display = 'flex';
     }
   });
 

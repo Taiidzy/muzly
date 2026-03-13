@@ -94,6 +94,23 @@
             />
           </div>
           <div class="table" id="tracks-table"></div>
+          <div class="reupload-modal" id="reupload-modal" style="display: none;">
+            <div class="modal-content">
+              <h3>Re-upload Track File</h3>
+              <p class="muted">Upload a new audio file for this failed track</p>
+              <form id="reupload-form">
+                <input type="hidden" name="track_id" id="reupload-track-id" />
+                <label>
+                  Audio file
+                  <input type="file" name="file" accept="audio/*" required />
+                </label>
+                <div class="modal-actions">
+                  <button type="button" class="ghost" id="reupload-cancel">Cancel</button>
+                  <button class="primary" type="submit">Upload</button>
+                </div>
+              </form>
+            </div>
+          </div>
         </section>
 
         <section class="panel span-2" id="playlists-panel">

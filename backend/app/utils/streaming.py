@@ -4,6 +4,7 @@ Handles Range requests for partial content streaming.
 """
 import os
 import stat
+import unicodedata
 from typing import Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse, Response
@@ -22,6 +23,22 @@ def get_content_type(file_path: str) -> str:
         ".webm": "audio/webm",
     }
     return content_types.get(ext, "application/octet-stream")
+
+
+def sanitize_header_value(value: str) -> str:
+    """
+    Sanitize header value to ensure it's safe for Latin-1 encoding.
+    Removes or replaces non-Latin-1 characters.
+    """
+    # Normalize unicode and encode to latin-1, replacing invalid chars
+    normalized = unicodedata.normalize('NFKD', value)
+    try:
+        # Try to encode as latin-1 first
+        value.encode('latin-1')
+        return value
+    except UnicodeEncodeError:
+        # Remove non-latin-1 characters
+        return normalized.encode('latin-1', 'ignore').decode('latin-1')
 
 
 def get_file_size(file_path: str) -> int:
@@ -92,7 +109,8 @@ async def create_streaming_response(
             
             # Create partial content response
             content_length = end - start + 1
-            
+            safe_filename = sanitize_header_value(os.path.basename(file_path))
+
             return StreamingResponse(
                 stream_file(file_path, start, end),
                 status_code=206,
@@ -101,7 +119,7 @@ async def create_streaming_response(
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(content_length),
                     "Content-Type": content_type,
-                    "Content-Disposition": f"inline; filename={os.path.basename(file_path)}",
+                    "Content-Disposition": f"inline; filename={safe_filename}",
                 },
                 media_type=content_type,
             )
@@ -111,6 +129,7 @@ async def create_streaming_response(
             pass
     
     # Return full file
+    safe_filename = sanitize_header_value(os.path.basename(file_path))
     return StreamingResponse(
         stream_file(file_path, 0, file_size - 1),
         status_code=200,
@@ -118,7 +137,7 @@ async def create_streaming_response(
             "Accept-Ranges": "bytes",
             "Content-Length": str(file_size),
             "Content-Type": content_type,
-            "Content-Disposition": f"inline; filename={os.path.basename(file_path)}",
+            "Content-Disposition": f"inline; filename={safe_filename}",
         },
         media_type=content_type,
     )
@@ -140,14 +159,15 @@ async def create_download_response(
     
     if filename is None:
         filename = os.path.basename(file_path)
-    
+
+    safe_filename = sanitize_header_value(filename)
     return StreamingResponse(
         stream_file(file_path, 0, file_size - 1),
         status_code=200,
         headers={
             "Content-Length": str(file_size),
             "Content-Type": content_type,
-            "Content-Disposition": f"attachment; filename={filename}",
+            "Content-Disposition": f"attachment; filename={safe_filename}",
         },
         media_type=content_type,
     )

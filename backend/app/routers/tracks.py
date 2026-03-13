@@ -240,21 +240,98 @@ async def update_track(
     """
     result = await db.exec(select(Track).where(Track.id == track_id))
     track = result.first()
-    
+
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
-    
+
     # Update fields
     update_data = track_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(track, field, value)
-    
+
     track.updated_at = datetime.utcnow()
-    
+
     db.add(track)
     await db.commit()
     await db.refresh(track)
-    
+
+    return track
+
+
+@router.post("/{track_id}/reupload", response_model=TrackResponse)
+async def reupload_track_file(
+    track_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Re-upload audio file for a failed track.
+    This allows fixing tracks that failed due to missing or corrupted audio files.
+    """
+    result = await db.exec(select(Track).where(Track.id == track_id))
+    track = result.first()
+
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Validate file extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
+        )
+
+    # Generate unique filename
+    unique_id = str(uuid.uuid4())
+    safe_title = "".join(c for c in track.title if c.isalnum() or c in " -_").strip()
+    safe_artist = "".join(c for c in track.artist if c.isalnum() or c in " -_").strip()
+    filename = f"{unique_id}_{safe_artist}_{safe_title}{file_ext}"
+
+    # Save file
+    file_path = MEDIA_ROOT / filename
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Read file content and check size
+        content = await file.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+            )
+
+        # Write file
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        file_size = len(content)
+
+        # Delete old file if exists
+        if track.file_path and os.path.exists(track.file_path):
+            try:
+                os.remove(track.file_path)
+            except Exception:
+                pass
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
+
+    # Update track record
+    track.file_path = str(file_path)
+    track.file_size = file_size
+    track.status = TrackStatus.READY
+    track.error_message = None
+    track.updated_at = datetime.utcnow()
+
+    db.add(track)
+    await db.commit()
+    await db.refresh(track)
+
     return track
 
 
