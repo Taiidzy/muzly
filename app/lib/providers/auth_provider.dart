@@ -79,6 +79,19 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Update server URL before login
+  Future<void> setServerUrl(String url) async {
+    await ApiConfig.save(url);
+    _apiService.updateBaseUrl(ApiConfig.baseUrl);
+
+    // Clear any existing auth state
+    _user = null;
+    _isLoggedIn = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    notifyListeners();
+  }
+
   /// Register new user
   Future<bool> register(String name, String email, String password) async {
     _error = null;

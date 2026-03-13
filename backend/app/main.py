@@ -4,13 +4,16 @@ Main FastAPI application entry point.
 """
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.config import CORS_ORIGINS
+from app.schemas import HealthResponse
 from app.database import init_db
 
 # Configure logging
@@ -95,6 +98,24 @@ app.include_router(playlists.router)
 app.include_router(favorites.router)
 app.include_router(import_router.router)
 app.include_router(admin.router)
+
+
+# Admin panel (static)
+STATIC_DIR = Path(__file__).parent / "static"
+ADMIN_DIR = STATIC_DIR / "admin"
+
+if ADMIN_DIR.exists():
+    app.mount("/admin/static", StaticFiles(directory=ADMIN_DIR), name="admin-static")
+
+
+@app.get("/admin", tags=["Admin UI"])
+@app.get("/admin/", tags=["Admin UI"])
+async def admin_ui():
+    """Serve the admin panel."""
+    index_file = ADMIN_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="Admin UI not found")
+    return FileResponse(index_file)
 
 
 # Health check endpoint

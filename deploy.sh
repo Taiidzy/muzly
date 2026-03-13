@@ -196,7 +196,7 @@ EOF
 server {
     listen 80;
     server_name ${DOMAIN};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -210,7 +210,7 @@ server {
 server {
     listen 443 ssl;
     server_name ${DOMAIN};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
@@ -317,6 +317,7 @@ display_summary() {
     echo "  docker compose down                  # Stop all containers"
     echo ""
     echo "Access your Muzly instance at: https://${DOMAIN}"
+    echo "Admin panel: https://${DOMAIN}/admin"
     echo ""
 }
 

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Muzly Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Inconsolata:wght@300;400;600&family=Noto+Serif+JP:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/admin/static/admin.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">MUZLY</div>
+          <div class="brand-sub">admin · 夜の音楽</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost" id="refresh-btn" type="button">Refresh</button>
+          <button class="ghost" id="logout-btn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="panel" id="login-panel">
+          <h2>Login</h2>
+          <p class="muted">Use the admin credentials from your .env</p>
+          <form id="login-form">
+            <label>
+              Username
+              <input type="text" name="username" autocomplete="username" required />
+            </label>
+            <label>
+              Password
+              <input type="password" name="password" autocomplete="current-password" required />
+            </label>
+            <button class="primary" type="submit">Sign in</button>
+          </form>
+        </section>
+
+        <section class="panel" id="upload-panel">
+          <h2>Upload Track</h2>
+          <p class="muted">MP3, M4A, FLAC, WAV, OGG</p>
+          <form id="upload-form">
+            <label>
+              Audio file
+              <input type="file" name="file" accept="audio/*" required />
+            </label>
+            <label>
+              Title
+              <input type="text" name="title" required />
+            </label>
+            <label>
+              Artist
+              <input type="text" name="artist" required />
+            </label>
+            <label>
+              Album (optional)
+              <input type="text" name="album" />
+            </label>
+            <button class="primary" type="submit">Upload</button>
+          </form>
+        </section>
+
+        <section class="panel" id="import-panel">
+          <h2>Import JSON</h2>
+          <p class="muted">Upload JSON with track metadata</p>
+          <form id="import-form">
+            <label>
+              JSON file
+              <input type="file" name="file" accept="application/json" required />
+            </label>
+            <button class="primary" type="submit">Start Import</button>
+          </form>
+          <div class="status" id="import-status"></div>
+        </section>
+
+        <section class="panel" id="stats-panel">
+          <h2>System Stats</h2>
+          <div class="stats" id="stats"></div>
+        </section>
+
+        <section class="panel span-2" id="tracks-panel">
+          <div class="panel-header">
+            <h2>Tracks</h2>
+            <input
+              type="search"
+              id="track-search"
+              placeholder="Search by title, artist, album"
+            />
+          </div>
+          <div class="table" id="tracks-table"></div>
+        </section>
+
+        <section class="panel span-2" id="playlists-panel">
+          <div class="panel-header">
+            <h2>Playlists</h2>
+            <div class="panel-actions">
+              <button class="ghost" id="playlist-refresh" type="button">Refresh</button>
+            </div>
+          </div>
+          <form id="playlist-form" class="inline-form">
+            <label>
+              Name
+              <input type="text" name="name" required />
+            </label>
+            <label>
+              Description
+              <input type="text" name="description" />
+            </label>
+            <label>
+              Visibility
+              <select name="visibility">
+                <option value="PRIVATE">PRIVATE</option>
+                <option value="PUBLIC">PUBLIC</option>
+              </select>
+            </label>
+            <button class="primary" type="submit">Create</button>
+          </form>
+          <div class="table" id="playlists-table"></div>
+          <div class="playlist-detail" id="playlist-detail"></div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span id="status-pill">Disconnected</span>
+        <span class="muted" id="api-base"></span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="/admin/static/admin.js"></script>
+  </body>
+</html>

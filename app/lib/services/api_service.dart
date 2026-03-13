@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import '../models/models.dart';
 import '../utils/logger.dart';
+import 'api_config.dart';
 
 /// API Service for communicating with the backend
 ///
@@ -10,21 +12,19 @@ import '../utils/logger.dart';
 /// Base URL: https://muzly.macrofox.org
 class ApiService {
   final Dio _dio;
-  final String _baseUrl;
+  String _baseUrl;
 
   // Backend base URL
-  static const String prodUrl = 'https://muzly.macrofox.org';
-  static const String devUrl = 'http://localhost:8080';
-  static String get baseUrl => _resolveBaseUrl();
+  static String get baseUrl => ApiConfig.baseUrl;
 
   // Store auth token for authenticated requests
   String? _authToken;
 
-  ApiService()
-    : _baseUrl = _resolveBaseUrl(),
+  ApiService({String? baseUrl})
+    : _baseUrl = baseUrl ?? ApiConfig.baseUrl,
       _dio = Dio(
         BaseOptions(
-          baseUrl: _resolveBaseUrl(),
+          baseUrl: baseUrl ?? ApiConfig.baseUrl,
           connectTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
           headers: {
@@ -35,15 +35,17 @@ class ApiService {
       ) {
     Logger.i('API Service initialized with base URL: $_baseUrl', tag: 'API');
 
-    // Configure HTTP client to accept bad certificates (for development only)
+    // Configure HTTP client to accept bad certificates (debug only)
     _dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        client.badCertificateCallback =
-            (X509Certificate cert, String host, int port) {
-              Logger.w('Accepting bad certificate for $host:$port', tag: 'API');
-              return true; // Accept the certificate
-            };
+        if (!kReleaseMode) {
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) {
+                Logger.w('Accepting bad certificate for $host:$port', tag: 'API');
+                return true; // Accept the certificate
+              };
+        }
         return client;
       },
     );
@@ -81,6 +83,13 @@ class ApiService {
     Logger.d('Auth token ${token != null ? "set" : "cleared"}', tag: 'API');
   }
 
+  /// Update base URL at runtime (e.g., when user changes server)
+  void updateBaseUrl(String url) {
+    _baseUrl = url;
+    _dio.options.baseUrl = url;
+    Logger.i('API base URL updated: $_baseUrl', tag: 'API');
+  }
+
   /// Health check
   Future<bool> healthCheck() async {
     try {
@@ -97,26 +106,23 @@ class ApiService {
   /// Backend: GET /tracks
   Future<List<Track>> getTracks({String? query, int limit = 200}) async {
     try {
-      final response = await _dio.get('/tracks');
+      final response = await _dio.get(
+        '/api/tracks',
+        queryParameters: {
+          'page': 1,
+          'page_size': limit,
+          if (query != null && query.trim().isNotEmpty) 'search': query,
+        },
+      );
 
       if (response.statusCode == 200) {
-        final items = (response.data as List?) ?? [];
+        final data = response.data as Map<String, dynamic>;
+        final items = (data['items'] as List?) ?? [];
         final tracks = items
             .map((t) => _mapTrackJson(t as Map<String, dynamic>))
             .map((t) => Track.fromJson(t))
             .toList();
-        if (query == null || query.trim().isEmpty) {
-          return tracks;
-        }
-        final needle = query.toLowerCase();
-        return tracks
-            .where(
-              (t) =>
-                  t.title.toLowerCase().contains(needle) ||
-                  t.artist.toLowerCase().contains(needle) ||
-                  (t.album?.toLowerCase().contains(needle) ?? false),
-            )
-            .toList();
+        return tracks;
       }
       throw ApiException('Failed to fetch tracks: ${response.statusCode}');
     } on DioException catch (e) {
@@ -128,7 +134,7 @@ class ApiService {
   /// Backend: GET /tracks/{track_id}
   Future<Track> getTrack(String id) async {
     try {
-      final response = await _dio.get('/tracks/$id');
+      final response = await _dio.get('/api/tracks/$id');
 
       if (response.statusCode == 200) {
         final data = _mapTrackJson(response.data as Map<String, dynamic>);
@@ -143,13 +149,13 @@ class ApiService {
   /// Get audio stream URL for a track
   /// Backend: GET /tracks/{track_id}/stream
   String getStreamUrl(String trackId) {
-    return '$_baseUrl/tracks/$trackId/stream';
+    return '$_baseUrl/api/tracks/$trackId/stream';
   }
 
   /// Get download URL for a track
   /// Backend: GET /tracks/{track_id}/download
   String getDownloadUrl(String trackId) {
-    return '$_baseUrl/tracks/$trackId/download';
+    return '$_baseUrl/api/tracks/$trackId/download';
   }
 
   // ==================== ALBUMS ====================
@@ -180,10 +186,17 @@ class ApiService {
   /// Backend: GET /playlists
   Future<List<Playlist>> getPlaylists({int page = 1, int limit = 50}) async {
     try {
-      final response = await _dio.get('/playlists');
+      final response = await _dio.get(
+        '/api/playlists',
+        queryParameters: {
+          'page': page,
+          'page_size': limit,
+        },
+      );
 
       if (response.statusCode == 200) {
-        final items = (response.data as List?) ?? [];
+        final data = response.data as Map<String, dynamic>;
+        final items = (data['items'] as List?) ?? [];
         return items
             .map((p) => _mapPlaylistJson(p as Map<String, dynamic>))
             .map((p) => Playlist.fromJson(p))
@@ -199,7 +212,7 @@ class ApiService {
   /// Backend: GET /playlists/{id}/tracks
   Future<Playlist> getPlaylist(String id) async {
     try {
-      final response = await _dio.get('/playlists/$id/tracks');
+      final response = await _dio.get('/api/playlists/$id');
       if (response.statusCode == 200) {
         final data = _mapPlaylistJson(response.data as Map<String, dynamic>);
         return Playlist.fromJson(data);
@@ -214,14 +227,11 @@ class ApiService {
   /// Get tracks for a playlist
   Future<List<Track>> getPlaylistTracks(String playlistId) async {
     try {
-      final response = await _dio.get('/playlists/$playlistId/tracks');
+      final response = await _dio.get('/api/playlists/$playlistId');
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final tracks = (data['tracks'] as List? ?? [])
-            .map((t) => _mapTrackJson(t as Map<String, dynamic>))
-            .map((t) => Track.fromJson(t))
-            .toList();
-        return tracks;
+        final playlist = Playlist.fromJson(_mapPlaylistJson(data));
+        return playlist.tracks ?? [];
       }
       return [];
     } catch (e) {
@@ -245,54 +255,41 @@ class ApiService {
 
   /// Get user's favorites playlist
   /// Backend: playlist with is_favorites=true
-  Future<Playlist?> getFavorites() async {
+  Future<List<Track>> getFavorites() async {
     try {
-      final playlists = await getPlaylists();
-      final favorites = playlists.firstWhere(
-        (p) => p.kind == 'favorites',
-        orElse: () => Playlist(
-          id: '',
-          title: 'Favorites',
-          kind: 'favorites',
-          trackCount: 0,
-          tracks: const [],
-        ),
-      );
-      if (favorites.id.isEmpty) {
-        return null;
+      final response = await _dio.get('/api/me/favorites');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final items = (data['items'] as List?) ?? [];
+        return items
+            .map((item) => item['track'] as Map<String, dynamic>)
+            .map((track) => _mapTrackJson(track))
+            .map((track) => Track.fromJson(track))
+            .toList();
       }
-      return await getPlaylist(favorites.id);
+      return [];
     } on DioException catch (e) {
       Logger.w('Failed to fetch favorites: ${e.message}', tag: 'API');
-      return null;
+      return [];
     }
   }
 
   /// Toggle track in favorites
   /// Backend: add/remove track from favorites playlist
-  Future<Playlist?> toggleFavorite(String trackId) async {
+  Future<bool> toggleFavorite(String trackId) async {
+    final parsedId = int.tryParse(trackId);
+    if (parsedId == null) {
+      throw ApiException('Invalid track id: $trackId');
+    }
     try {
-      final favorites = await getFavorites();
-      if (favorites == null) return null;
-
-      final tracks = favorites.tracks ?? [];
-      final exists = tracks.any((t) => t.id == trackId);
-      if (exists) {
-        await _dio.delete('/playlists/${favorites.id}/tracks/$trackId');
-      } else {
-        final parsedId = int.tryParse(trackId);
-        if (parsedId == null) {
-          throw ApiException('Invalid track id: $trackId');
-        }
-        await _dio.post(
-          '/playlists/${favorites.id}/tracks',
-          data: {'track_id': parsedId},
-        );
-      }
-      return await getPlaylist(favorites.id);
+      await _dio.post('/api/me/favorites/$parsedId');
+      return true;
     } on DioException catch (e) {
-      Logger.e('Failed to toggle favorite', tag: 'API', error: e);
-      return null;
+      if (e.response?.statusCode == 400) {
+        await _dio.delete('/api/me/favorites/$parsedId');
+        return false;
+      }
+      throw _handleDioError(e);
     }
   }
 
@@ -374,8 +371,11 @@ class ApiService {
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await _dio.post(
-        '/auth/login',
+        '/api/auth/login',
         data: {'username': email, 'password': password},
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -447,13 +447,14 @@ class ApiService {
 Map<String, dynamic> _mapTrackJson(Map<String, dynamic> json) {
   final id = json['id']?.toString() ?? '';
   final coverPath =
+      json['cover_path'] ??
       json['track_cover_path'] ??
       json['album_cover_path'] ??
       json['artist_avatar_path'];
   final coverUrl = coverPath != null ? '/media/$coverPath' : null;
   return {
     ...json,
-    'streamUrl': json['streamUrl'] ?? '/tracks/$id/stream',
+    'streamUrl': json['streamUrl'] ?? '/api/tracks/$id/stream',
     'cover200Url': json['cover200Url'] ?? coverUrl,
     'cover800Url': json['cover800Url'] ?? coverUrl,
   };
@@ -465,7 +466,13 @@ Map<String, dynamic> _mapPlaylistJson(Map<String, dynamic> json) {
   final mappedTracks =
       tracks is List
           ? tracks
-              .map((t) => _mapTrackJson(t as Map<String, dynamic>))
+              .map((t) {
+                final trackItem = t as Map<String, dynamic>;
+                final track = trackItem['track'] is Map<String, dynamic>
+                    ? trackItem['track'] as Map<String, dynamic>
+                    : trackItem;
+                return _mapTrackJson(track);
+              })
               .toList()
           : null;
   return {
@@ -474,17 +481,8 @@ Map<String, dynamic> _mapPlaylistJson(Map<String, dynamic> json) {
     'title': json['title'] ?? json['name'],
     'kind': json['kind'] ?? (isFavorites ? 'favorites' : 'custom'),
     'isPublic': json['isPublic'] ?? true,
-    'trackCount':
-        json['trackCount'] ?? (json['tracks'] as List?)?.length ?? 0,
+    'trackCount': json['trackCount'] ?? (mappedTracks?.length ?? 0),
   };
-}
-
-String _resolveBaseUrl() {
-  const override = String.fromEnvironment('API_BASE_URL');
-  if (override.isNotEmpty) {
-    return override;
-  }
-  return ApiService.prodUrl;
 }
 
 /// Search results container

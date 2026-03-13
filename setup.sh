@@ -14,6 +14,7 @@ NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 echo ""
@@ -141,7 +142,7 @@ cat > nginx/templates/muzly.conf.template << EOF
 server {
     listen 80;
     server_name ${DOMAIN};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -155,7 +156,7 @@ server {
 server {
     listen 443 ssl;
     server_name ${DOMAIN};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;

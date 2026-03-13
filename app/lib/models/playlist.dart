@@ -36,6 +36,7 @@ class Playlist {
     }
 
     final isFavorites = json['is_favorites'] == true;
+    final visibility = json['visibility'];
     return Playlist(
       id: json['id']?.toString() ?? '',
       title: json['title'] ?? json['name'] ?? 'Unknown Playlist',
@@ -45,7 +46,7 @@ class Playlist {
       creatorName: json['creatorName'] ?? json['user_name'],
       trackCount: json['trackCount'] ?? tracks?.length ?? 0,
       tracks: tracks,
-      isPublic: json['isPublic'] ?? (json['kind'] != 'custom'),
+      isPublic: json['isPublic'] ?? (visibility == 'PUBLIC' || visibility == 'public'),
       kind: json['kind'] ?? (isFavorites ? 'favorites' : 'custom'),
     );
   }

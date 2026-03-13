@@ -31,6 +31,10 @@ This script will:
 - Obtain SSL certificate via Let's Encrypt
 - Configure nginx automatically
 
+After deployment:
+- **Admin panel**: `https://your-domain/admin`
+- **API**: `https://your-domain/api`
+
 ### Manual Setup
 
 ```bash
@@ -123,6 +127,18 @@ Once running, access the interactive API documentation:
 - **Password**: `admin`
 
 ⚠️ **Change these in production!** Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env`
+
+## Admin Panel
+
+After deployment, open:
+
+- `https://your-domain/admin`
+
+Use the admin credentials from `.env` to upload or import tracks.
+
+## Mobile App
+
+On the login screen, set **Server URL** to your domain (e.g., `https://muzly.example.com`) and log in with the admin credentials.
 
 ## API Endpoints
 

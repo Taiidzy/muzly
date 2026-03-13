@@ -1,7 +1,7 @@
 server {
     listen 80;
     server_name ${NGINX_HTTP_SERVER_NAME};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -15,7 +15,7 @@ server {
 server {
     listen 443 ssl;
     server_name ${NGINX_HTTPS_SERVER_NAME};
-    client_max_body_size 50m;
+    client_max_body_size 100m;
 
     ssl_certificate /etc/letsencrypt/live/${NGINX_SSL_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${NGINX_SSL_DOMAIN}/privkey.pem;

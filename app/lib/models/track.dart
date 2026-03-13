@@ -1,5 +1,5 @@
 import 'dart:convert';
-import '../services/api_service.dart';
+import '../services/api_config.dart';
 
 /// Represents a music track in the application
 class Track {
@@ -65,7 +65,7 @@ class Track {
       if (url == null || url == '') return null;
       final urlStr = url.toString();
       if (urlStr.startsWith('/')) {
-        return '${ApiService.baseUrl}$urlStr';
+        return '${ApiConfig.baseUrl}$urlStr';
       }
       return urlStr;
     }
@@ -75,18 +75,22 @@ class Track {
         json['album_cover_path'] ??
         json['artist_avatar_path'];
 
+    final durationMs = json['duration_ms'] ?? json['durationMs'];
+    final durationSeconds =
+        durationMs is int ? (durationMs / 1000).round() : (json['duration'] ?? 0);
+
     return Track(
       id: json['id']?.toString() ?? '',
       title: json['title'] ?? 'Unknown',
       artist: json['artist'] ?? json['artistName'] ?? 'Unknown Artist',
       album: json['album'] ?? json['albumName'],
-      duration: json['duration'] ?? 0,
+      duration: durationSeconds,
       coverColor: json['coverColor'] ?? json['cover_color'],
       tags: tags,
       streamUrl: json['streamUrl'] != null
-          ? '${ApiService.baseUrl}${json['streamUrl']}'
+          ? '${ApiConfig.baseUrl}${json['streamUrl']}'
           : (json['stream_url'] != null
-              ? '${ApiService.baseUrl}${json['stream_url']}'
+              ? '${ApiConfig.baseUrl}${json['stream_url']}'
               : ''),
       cover200Url: normalizeCoverUrl(
         json['cover200Url'] ??

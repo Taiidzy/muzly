@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_theme.dart';
+import '../../services/api_config.dart';
 
 /// Login Screen
 ///
@@ -15,19 +16,24 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _serverController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _nameController = TextEditingController();
 
-  bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _serverController.text = ApiConfig.baseUrl;
+  }
+
+  @override
   void dispose() {
+    _serverController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -76,45 +82,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (!_isLogin) ...[
-                        // Name field (registration only)
-                        TextFormField(
-                          controller: _nameController,
-                          style: const TextStyle(
-                            fontFamily: 'Inconsolata',
-                            fontSize: 14,
-                            color: AppTheme.text,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'NAME',
-                            labelStyle: const TextStyle(
-                              fontFamily: 'Inconsolata',
-                              fontSize: 10,
-                              color: AppTheme.textDim,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (!_isLogin && (value == null || value.isEmpty)) {
-                              return 'Name is required';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Email field
+                      // Server URL
                       TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
+                        controller: _serverController,
+                        keyboardType: TextInputType.url,
                         style: const TextStyle(
                           fontFamily: 'Inconsolata',
                           fontSize: 14,
                           color: AppTheme.text,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'EMAIL',
+                          labelText: 'SERVER URL',
+                          labelStyle: const TextStyle(
+                            fontFamily: 'Inconsolata',
+                            fontSize: 10,
+                            color: AppTheme.textDim,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Server URL is required';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Username field
+                      TextFormField(
+                        controller: _emailController,
+                        style: const TextStyle(
+                          fontFamily: 'Inconsolata',
+                          fontSize: 14,
+                          color: AppTheme.text,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'USERNAME',
                           labelStyle: const TextStyle(
                             fontFamily: 'Inconsolata',
                             fontSize: 10,
@@ -124,10 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Email is required';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Enter a valid email';
+                            return 'Username is required';
                           }
                           return null;
                         },
@@ -171,9 +173,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (value == null || value.isEmpty) {
                             return 'Password is required';
                           }
-                          if (!_isLogin && value.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
                           return null;
                         },
                       ),
@@ -203,35 +202,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               )
                             : Text(
-                                _isLogin ? 'LOGIN' : 'REGISTER',
+                                'LOGIN',
                                 style: const TextStyle(
                                   fontFamily: 'Inconsolata',
                                   fontSize: 12,
                                   letterSpacing: 3,
                                 ),
                               ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Toggle login/register
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLogin = !_isLogin;
-                          });
-                        },
-                        child: Text(
-                          _isLogin
-                              ? "Don't have an account? Register"
-                              : 'Already have an account? Login',
-                          style: const TextStyle(
-                            fontFamily: 'Inconsolata',
-                            fontSize: 10,
-                            color: AppTheme.textDim,
-                            letterSpacing: 1,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -285,10 +262,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final serverUrl = _serverController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (_isLogin) {
+    auth.setServerUrl(serverUrl).then((_) {
       auth.login(email, password).then((_) {
         if (mounted) {
           setState(() {
@@ -296,15 +274,6 @@ class _LoginScreenState extends State<LoginScreen> {
           });
         }
       });
-    } else {
-      final name = _nameController.text.trim();
-      auth.register(name, email, password).then((_) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      });
-    }
+    });
   }
 }

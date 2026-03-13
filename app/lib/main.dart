@@ -17,6 +17,7 @@ void main() async {
 
   // Initialize services
   Logger.d('Initializing services...', tag: 'App');
+  await ApiConfig.load();
   final apiService = ApiService();
   final audioPlayerService = AudioPlayerService(apiService: apiService);
   Logger.d('Services initialized', tag: 'App');
