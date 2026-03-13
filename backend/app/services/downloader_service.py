@@ -178,18 +178,17 @@ def download_track_sync(url: str, title: str, artist: str, dest_dir: Optional[st
     
     try:
         with httpx.Client(timeout=60.0, follow_redirects=True) as client:
-            response = client.get(url, stream=True, headers=HEADERS)
-            
-            if response.status_code == 200:
-                with open(filename, "wb") as f:
-                    for chunk in response.iter_bytes(chunk_size=8192):
-                        f.write(chunk)
-                
-                logger.info("Скачано: %s", filename)
-                return filename
-            else:
-                logger.error("Ошибка скачивания: %s", response.status_code)
-                return None
+            with client.stream("GET", url, headers=HEADERS) as response:
+                if response.status_code == 200:
+                    with open(filename, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                    
+                    logger.info("Скачано: %s", filename)
+                    return filename
+                else:
+                    logger.error("Ошибка скачивания: %s", response.status_code)
+                    return None
     
     except Exception as e:
         logger.error("Ошибка при скачивании трека: %s", e)
@@ -209,22 +208,21 @@ def download_image_sync(url: str, dest_dir: Path, base_name: str) -> Optional[st
     
     try:
         with httpx.Client(timeout=30.0, follow_redirects=True) as client:
-            response = client.get(full_url, stream=True, headers=HEADERS)
-            
-            if response.status_code != 200:
-                logger.error("Ошибка скачивания изображения: %s", response.status_code)
-                logger.debug("URL: %s", full_url)
-                return None
-            
-            ext = _guess_image_extension(full_url, response.headers.get("Content-Type", ""))
-            filename = str(dest_dir / f"{safe_filename(base_name)}{ext}")
-            
-            with open(filename, "wb") as f:
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    f.write(chunk)
-            
-            logger.info("Скачано изображение: %s", filename)
-            return filename
+            with client.stream("GET", full_url, headers=HEADERS) as response:
+                if response.status_code != 200:
+                    logger.error("Ошибка скачивания изображения: %s", response.status_code)
+                    logger.debug("URL: %s", full_url)
+                    return None
+                
+                ext = _guess_image_extension(full_url, response.headers.get("Content-Type", ""))
+                filename = str(dest_dir / f"{safe_filename(base_name)}{ext}")
+                
+                with open(filename, "wb") as f:
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        f.write(chunk)
+                
+                logger.info("Скачано изображение: %s", filename)
+                return filename
     
     except Exception as e:
         logger.error("Ошибка при скачивании изображения: %s", e)
