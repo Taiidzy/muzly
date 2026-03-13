@@ -137,7 +137,58 @@ IMPORT_DROP=./import_drop
 EOF
 fi
 
-# Update nginx config
+# Update nginx config (HTTP only for initial cert)
+cat > nginx/templates/muzly.conf.template << EOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    client_max_body_size 100m;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+log_success "Configuration generated"
+
+# Create directories
+log_info "Creating directories..."
+mkdir -p nginx/certbot/www nginx/certbot/conf
+mkdir -p backend/media backend/uploads backend/public backend/import_drop backend/covers backend/data
+
+# Start services
+log_info "Starting Docker containers..."
+if [ "$USE_POSTGRES" = true ]; then
+    docker compose up -d postgres backend nginx certbot
+else
+    docker compose up -d backend nginx certbot
+fi
+
+log_info "Waiting for services to be ready..."
+sleep 10
+
+# Get SSL certificate
+log_info "Obtaining SSL certificate..."
+docker compose run --rm --entrypoint certbot certbot certonly \
+    --webroot \
+    --webroot-path=/var/www/certbot \
+    --email "admin@${DOMAIN}" \
+    --agree-tos \
+    --no-eff-email \
+    --force-renewal \
+    -d "${DOMAIN}"
+
+# Restart nginx
+log_info "Restarting nginx..."
 cat > nginx/templates/muzly.conf.template << EOF
 server {
     listen 80;
@@ -170,38 +221,6 @@ server {
     }
 }
 EOF
-
-log_success "Configuration generated"
-
-# Create directories
-log_info "Creating directories..."
-mkdir -p nginx/certbot/www nginx/certbot/conf
-mkdir -p backend/media backend/uploads backend/public backend/import_drop backend/covers backend/data
-
-# Start services
-log_info "Starting Docker containers..."
-if [ "$USE_POSTGRES" = true ]; then
-    docker compose up -d postgres backend nginx certbot
-else
-    docker compose up -d backend nginx certbot
-fi
-
-log_info "Waiting for services to be ready..."
-sleep 10
-
-# Get SSL certificate
-log_info "Obtaining SSL certificate..."
-docker compose run --rm certbot certonly \
-    --webroot \
-    --webroot-path=/var/www/certbot \
-    --email "admin@${DOMAIN}" \
-    --agree-tos \
-    --no-eff-email \
-    --force-renewal \
-    -d "${DOMAIN}"
-
-# Restart nginx
-log_info "Restarting nginx..."
 docker compose restart nginx
 
 echo ""

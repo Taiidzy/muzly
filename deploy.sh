@@ -191,7 +191,32 @@ IMPORT_DROP=./import_drop
 EOF
     fi
     
-    # Create nginx config
+# Create nginx config (HTTP only for initial cert)
+    cat > nginx/templates/muzly.conf.template << EOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    client_max_body_size 100m;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+    
+    log_success ".env and nginx config generated"
+}
+
+# Write SSL nginx config (after certificate is issued)
+write_ssl_config() {
     cat > nginx/templates/muzly.conf.template << EOF
 server {
     listen 80;
@@ -224,8 +249,6 @@ server {
     }
 }
 EOF
-    
-    log_success ".env and nginx config generated"
 }
 
 # Create required directories
@@ -262,7 +285,7 @@ get_ssl_certificate() {
     log_info "Obtaining SSL certificate..."
     
     # Run certbot to get initial certificate
-    docker compose run --rm certbot certonly \
+    docker compose run --rm --entrypoint certbot certbot certonly \
         --webroot \
         --webroot-path=/var/www/certbot \
         --email "admin@${DOMAIN}" \
@@ -355,6 +378,7 @@ main() {
     sleep 10
     
     get_ssl_certificate
+    write_ssl_config
     restart_nginx
     display_summary
 }
