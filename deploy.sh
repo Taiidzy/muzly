@@ -249,7 +249,7 @@ start_docker() {
     log_info "Starting Docker containers..."
     
     if [ "$USE_POSTGRES" = true ]; then
-        docker compose up -d --profile postgres backend nginx certbot
+        docker compose up -d postgres backend nginx certbot
     else
         docker compose up -d backend nginx certbot
     fi
