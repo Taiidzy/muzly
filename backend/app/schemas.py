@@ -46,6 +46,8 @@ class TrackUpdate(BaseModel):
     title: Optional[str] = None
     artist: Optional[str] = None
     album: Optional[str] = None
+    replace_audio: bool = False
+    replace_cover: bool = False
 
 
 class TrackResponse(TrackBase):

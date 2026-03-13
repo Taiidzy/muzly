@@ -9,6 +9,7 @@ const state = {
   editingTrackId: null,
   editingPlaylistId: null,
   loading: false,
+  selectedTrackIds: new Set(),
 };
 
 const els = {
@@ -158,8 +159,15 @@ function renderTracks(tracks) {
     return;
   }
 
+  const hasSelection = state.selectedTrackIds.size > 0;
   const header = `
     <div class="table-row header">
+      <div style="width: 40px;">
+        ${hasSelection 
+          ? `<button class="ghost" data-action="clear-selection" style="padding: 4px 8px; font-size: 10px;">✕ Clear</button>`
+          : '<span>Select</span>'
+        }
+      </div>
       <div>Title</div>
       <div>Artist</div>
       <div>Album</div>
@@ -172,15 +180,29 @@ function renderTracks(tracks) {
       const status = track.status || 'ready';
       const isEditing = state.editingTrackId === String(track.id);
       const isFailed = status === 'failed';
+      const errorMessage = track.error_message || '';
+      const isSelected = state.selectedTrackIds.has(String(track.id));
       return `
         <div class="table-row ${isEditing ? 'editing' : ''}">
+          <div style="width: 40px; display: flex; justify-content: center;">
+            <input type="checkbox" data-track-id="${track.id}" ${isSelected ? 'checked' : ''} ${isEditing ? 'disabled' : ''} />
+          </div>
           <div>
             ${
               isEditing
-                ? `<input type="text" data-field="title" data-id="${track.id}" value="${track.title || ''}" />`
+                ? `<input type="text" data-field="title" data-id="${track.id}" value="${track.title || ''}" />
+                   <label style="margin-top: 8px; font-size: 10px; color: var(--text-dim);">
+                     Replace audio
+                     <input type="file" data-field="audio_file" data-id="${track.id}" accept="audio/*" style="margin-top: 4px;" />
+                   </label>
+                   <label style="margin-top: 4px; font-size: 10px; color: var(--text-dim);">
+                     Replace cover
+                     <input type="file" data-field="cover_file" data-id="${track.id}" accept="image/*" style="margin-top: 4px;" />
+                   </label>`
                 : `<div>${track.title}</div>`
             }
             <div class="muted">${track.id}</div>
+            ${isFailed && errorMessage ? `<div class="error-message" style="color: var(--danger); font-size: 11px; margin-top: 4px;">${errorMessage}</div>` : ''}
           </div>
           <div>
             ${
@@ -212,7 +234,14 @@ function renderTracks(tracks) {
     })
     .join('');
 
-  els.tracksTable.innerHTML = header + rows;
+  const bulkActions = hasSelection 
+    ? `<div style="display: flex; gap: 8px; padding: 12px; background: rgba(122, 143, 166, 0.1); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 8px;">
+        <span style="color: var(--text); font-size: 12px;">${state.selectedTrackIds.size} track(s) selected</span>
+        <button class="ghost" data-action="bulk-delete" style="color: var(--danger); border-color: var(--danger);">Delete Selected</button>
+      </div>`
+    : '';
+
+  els.tracksTable.innerHTML = bulkActions + header + rows;
 }
 
 async function loadTracks() {
@@ -419,6 +448,28 @@ async function reuploadTrack(trackId, formData) {
   await loadStats();
 }
 
+async function updateTrackWithFiles(trackId, formData) {
+  await apiFetch(`/tracks/${trackId}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  showToast('Track updated', 'success');
+  await loadTracks();
+  await loadStats();
+}
+
+async function deleteTracks(trackIds) {
+  const ids = Array.isArray(trackIds) ? trackIds : [trackIds];
+  await apiFetch('/tracks/delete-bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: ids }),
+  });
+  showToast(`${ids.length} track(s) deleted`, 'success');
+  await loadTracks();
+  await loadStats();
+}
+
 async function importJson(formData) {
   const response = await apiFetch('/import/json', {
     method: 'POST',
@@ -449,20 +500,7 @@ async function pollImport(taskId) {
 }
 
 async function deleteTrack(trackId) {
-  await apiFetch(`/tracks/${trackId}`, { method: 'DELETE' });
-  showToast('Track deleted', 'success');
-  await loadTracks();
-  await loadStats();
-}
-
-async function updateTrack(trackId, payload) {
-  await apiFetch(`/tracks/${trackId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  showToast('Track updated', 'success');
-  await loadTracks();
+  await deleteTracks([trackId]);
 }
 
 async function createPlaylist(payload) {
@@ -573,9 +611,24 @@ function bindEvents() {
 
   els.tracksTable.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
+    const checkbox = event.target.closest('input[type="checkbox"]');
+    
+    // Handle checkbox selection
+    if (checkbox && checkbox.hasAttribute('data-track-id')) {
+      const trackId = String(checkbox.dataset.trackId);
+      if (checkbox.checked) {
+        state.selectedTrackIds.add(trackId);
+      } else {
+        state.selectedTrackIds.delete(trackId);
+      }
+      renderTracks(state.tracks);
+      return;
+    }
+    
     if (!button) return;
     const action = button.dataset.action;
     const trackId = button.dataset.id;
+    
     if (action === 'play') {
       const url = `${apiBase}/tracks/${trackId}/stream`;
       window.open(url, '_blank');
@@ -593,12 +646,24 @@ function bindEvents() {
       const title = row.querySelector('input[data-field="title"]').value.trim();
       const artist = row.querySelector('input[data-field="artist"]').value.trim();
       const album = row.querySelector('input[data-field="album"]').value.trim();
+      const audioFile = row.querySelector('input[data-field="audio_file"]');
+      const coverFile = row.querySelector('input[data-field="cover_file"]');
+      
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('artist', artist);
+      if (album.length) {
+        formData.append('album', album);
+      }
+      if (audioFile && audioFile.files[0]) {
+        formData.append('audio_file', audioFile.files[0]);
+      }
+      if (coverFile && coverFile.files[0]) {
+        formData.append('cover_file', coverFile.files[0]);
+      }
+      
       try {
-        await updateTrack(trackId, {
-          title,
-          artist,
-          album: album.length ? album : null,
-        });
+        await updateTrackWithFiles(trackId, formData);
         state.editingTrackId = null;
       } catch (err) {
         showToast(err.message, 'error');
@@ -612,6 +677,21 @@ function bindEvents() {
           showToast(err.message, 'error');
         }
       }
+    }
+    if (action === 'bulk-delete') {
+      const count = state.selectedTrackIds.size;
+      if (confirm(`Delete ${count} selected track(s)?`)) {
+        try {
+          await deleteTracks(Array.from(state.selectedTrackIds));
+          state.selectedTrackIds.clear();
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      }
+    }
+    if (action === 'clear-selection') {
+      state.selectedTrackIds.clear();
+      renderTracks(state.tracks);
     }
     if (action === 'reupload') {
       document.getElementById('reupload-track-id').value = trackId;

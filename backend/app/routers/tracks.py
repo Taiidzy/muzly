@@ -4,12 +4,13 @@ Tracks router - handles track CRUD, streaming, and search.
 import os
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
 from pathlib import Path
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import Track, TrackSource, TrackStatus
@@ -20,6 +21,10 @@ from app.config import MEDIA_ROOT, ALLOWED_AUDIO_EXTENSIONS, ALLOWED_AUDIO_TYPES
 from app.models import User
 
 router = APIRouter(prefix="/api/tracks", tags=["Tracks"])
+
+
+class TrackIdsDelete(BaseModel):
+    track_ids: List[int]
 
 
 @router.get("", response_model=TrackListResponse)
@@ -231,12 +236,16 @@ async def download_track(
 @router.put("/{track_id}", response_model=TrackResponse)
 async def update_track(
     track_id: int,
-    track_data: TrackUpdate,
+    title: Optional[str] = Form(None),
+    artist: Optional[str] = Form(None),
+    album: Optional[str] = Form(None),
+    audio_file: Optional[UploadFile] = File(None),
+    cover_file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Update track metadata.
+    Update track metadata and optionally replace audio/cover files.
     """
     result = await db.exec(select(Track).where(Track.id == track_id))
     track = result.first()
@@ -244,10 +253,80 @@ async def update_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Update fields
-    update_data = track_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(track, field, value)
+    # Update metadata fields
+    if title is not None:
+        track.title = title
+    if artist is not None:
+        track.artist = artist
+    if album is not None:
+        track.album = album
+
+    # Handle audio file replacement
+    if audio_file and audio_file.filename:
+        file_ext = Path(audio_file.filename).suffix.lower()
+        if file_ext not in ALLOWED_AUDIO_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid audio file type. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
+            )
+
+        # Delete old file if exists
+        if track.file_path and os.path.exists(track.file_path):
+            try:
+                os.remove(track.file_path)
+            except Exception:
+                pass
+
+        # Save new file
+        unique_id = str(uuid.uuid4())
+        safe_title = "".join(c for c in track.title if c.isalnum() or c in " -_").strip()
+        safe_artist = "".join(c for c in track.artist if c.isalnum() or c in " -_").strip()
+        filename = f"{unique_id}_{safe_artist}_{safe_title}{file_ext}"
+        file_path = MEDIA_ROOT / filename
+        MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+
+        content = await audio_file.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Audio file too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+            )
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        track.file_path = str(file_path)
+        track.file_size = len(content)
+        track.status = TrackStatus.READY
+        track.error_message = None
+
+    # Handle cover file replacement
+    if cover_file and cover_file.filename:
+        # Delete old cover if exists
+        if track.cover_path and os.path.exists(track.cover_path):
+            try:
+                os.remove(track.cover_path)
+            except Exception:
+                pass
+
+        # Save new cover
+        file_ext = Path(cover_file.filename).suffix.lower()
+        allowed_image_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+        if file_ext not in allowed_image_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image file type. Allowed: {', '.join(allowed_image_extensions)}"
+            )
+
+        unique_id = str(uuid.uuid4())
+        filename = f"cover_{unique_id}{file_ext}"
+        cover_path = MEDIA_ROOT / filename
+
+        content = await cover_file.read()
+        with open(cover_path, "wb") as f:
+            f.write(content)
+
+        track.cover_path = str(cover_path)
 
     track.updated_at = datetime.utcnow()
 
@@ -261,13 +340,14 @@ async def update_track(
 @router.post("/{track_id}/reupload", response_model=TrackResponse)
 async def reupload_track_file(
     track_id: int,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    cover_file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Re-upload audio file for a failed track.
-    This allows fixing tracks that failed due to missing or corrupted audio files.
+    Re-upload audio file and/or cover for a failed track.
+    This allows fixing tracks that failed due to missing or corrupted files.
     """
     result = await db.exec(select(Track).where(Track.id == track_id))
     track = result.first()
@@ -275,55 +355,84 @@ async def reupload_track_file(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Validate file extension
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ALLOWED_AUDIO_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
-        )
-
-    # Generate unique filename
-    unique_id = str(uuid.uuid4())
-    safe_title = "".join(c for c in track.title if c.isalnum() or c in " -_").strip()
-    safe_artist = "".join(c for c in track.artist if c.isalnum() or c in " -_").strip()
-    filename = f"{unique_id}_{safe_artist}_{safe_title}{file_ext}"
-
-    # Save file
-    file_path = MEDIA_ROOT / filename
-    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # Read file content and check size
-        content = await file.read()
-        if len(content) > MAX_UPLOAD_SIZE:
+    # Handle audio file replacement
+    if file and file.filename:
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in ALLOWED_AUDIO_EXTENSIONS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+                detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
             )
 
-        # Write file
-        with open(file_path, "wb") as f:
-            f.write(content)
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())
+        safe_title = "".join(c for c in track.title if c.isalnum() or c in " -_").strip()
+        safe_artist = "".join(c for c in track.artist if c.isalnum() or c in " -_").strip()
+        filename = f"{unique_id}_{safe_artist}_{safe_title}{file_ext}"
 
-        file_size = len(content)
+        # Save file
+        file_path = MEDIA_ROOT / filename
+        MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
-        # Delete old file if exists
-        if track.file_path and os.path.exists(track.file_path):
+        try:
+            # Read file content and check size
+            content = await file.read()
+            if len(content) > MAX_UPLOAD_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File too large. Max size: {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+                )
+
+            # Write file
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            file_size = len(content)
+
+            # Delete old file if exists
+            if track.file_path and os.path.exists(track.file_path):
+                try:
+                    os.remove(track.file_path)
+                except Exception:
+                    pass
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save file: {str(e)}"
+            )
+
+        track.file_path = str(file_path)
+        track.file_size = file_size
+
+    # Handle cover file replacement
+    if cover_file and cover_file.filename:
+        # Delete old cover if exists
+        if track.cover_path and os.path.exists(track.cover_path):
             try:
-                os.remove(track.file_path)
+                os.remove(track.cover_path)
             except Exception:
                 pass
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save file: {str(e)}"
-        )
+        # Save new cover
+        file_ext = Path(cover_file.filename).suffix.lower()
+        allowed_image_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+        if file_ext not in allowed_image_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image file type. Allowed: {', '.join(allowed_image_extensions)}"
+            )
 
-    # Update track record
-    track.file_path = str(file_path)
-    track.file_size = file_size
+        unique_id = str(uuid.uuid4())
+        filename = f"cover_{unique_id}{file_ext}"
+        cover_path = MEDIA_ROOT / filename
+
+        content = await cover_file.read()
+        with open(cover_path, "wb") as f:
+            f.write(content)
+
+        track.cover_path = str(cover_path)
+
     track.status = TrackStatus.READY
     track.error_message = None
     track.updated_at = datetime.utcnow()
@@ -347,10 +456,10 @@ async def delete_track(
     """
     result = await db.exec(select(Track).where(Track.id == track_id))
     track = result.first()
-    
+
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
-    
+
     # Delete file if exists
     if track.file_path and os.path.exists(track.file_path):
         try:
@@ -358,9 +467,40 @@ async def delete_track(
         except Exception as e:
             # Log error but continue with database deletion
             pass
-    
+
     # Delete database record
     await db.delete(track)
     await db.commit()
-    
+
+    return None
+
+
+@router.post("/delete-bulk", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tracks_bulk(
+    body: TrackIdsDelete,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    """
+    Delete multiple tracks at once (admin only).
+    Removes both database records and files.
+    """
+    track_ids = body.track_ids
+    result = await db.exec(select(Track).where(Track.id.in_(track_ids)))
+    tracks = result.all()
+
+    for track in tracks:
+        # Delete file if exists
+        if track.file_path and os.path.exists(track.file_path):
+            try:
+                os.remove(track.file_path)
+            except Exception as e:
+                # Log error but continue with database deletion
+                pass
+
+        # Delete database record
+        await db.delete(track)
+
+    await db.commit()
+
     return None
